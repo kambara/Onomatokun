@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="638" height="357">
+	<fx:Script>
+		<![CDATA[
+			import mx.controls.Image;
+			import mx.core.IVisualElementContainer;
+			
+			import org.libspark.betweenas3.BetweenAS3;
+			import org.libspark.betweenas3.easing.Physical;
+			import org.libspark.betweenas3.events.TweenEvent;
+			import org.libspark.betweenas3.tweens.ITween;
+			
+			[Embed(source="../assets/kawara.jpg")]
+			[Bindable]
+			public var KawaraImage:Class;
+			
+			private var tweens:Object = {};
+			private var tweenCount:uint = 0;
+			
+			public function play(initX:Number = 0):void {
+				var img:Image = new Image();
+				img.source = Bitmap(new KawaraImage);
+				//img.x = 640 + 50;
+				img.x = initX;
+				img.width = 638;
+				addElement(img);
+				
+				var tweenId:String = "t"+tweenCount;
+				var tween:ITween = BetweenAS3.physicalTo(img, {x: -700}, Physical.uniform(3));
+				tweens[tweenId] = tween;
+				tweenCount += 1;
+				
+				tween.addEventListener(TweenEvent.UPDATE, function():void {
+					// 次の屋根
+					if (img.x + img.width < 640) {
+						tween.removeEventListener(TweenEvent.UPDATE, arguments.callee);
+						if (Math.random() < 0.3) {
+							play(img.x + img.width + 70);
+						} else {
+							play(img.x + img.width);
+						}
+					}
+				});
+				tween.addEventListener(TweenEvent.COMPLETE, function():void {
+					delete tweens[tweenId];
+					removeElement(img);
+				});
+				tween.play();
+			}
+			
+			public function pause():void {
+				for each (var tween:ITween in tweens) {
+					tween.stop();
+				} 
+			}
+			
+			public function replay():void {
+				for each (var tween:ITween in tweens) {
+					tween.play();
+				}
+			}
+		]]>
+	</fx:Script>
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+</s:Group>

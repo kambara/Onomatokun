@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="90" height="100">
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import flash.utils.setTimeout;
+			
+			import mx.core.IVisualElementContainer;
+			
+			import org.libspark.betweenas3.BetweenAS3;
+			import org.libspark.betweenas3.core.easing.SineEaseInOut;
+			import org.libspark.betweenas3.easing.Physical;
+			import org.libspark.betweenas3.easing.Quad;
+			import org.libspark.betweenas3.easing.Sine;
+			import org.libspark.betweenas3.events.TweenEvent;
+			import org.libspark.betweenas3.tweens.ITween;
+			
+			public static const OUT:String = "out";
+			public static const UPDATE:String = "update";
+			private var xMove:Boolean = false;
+			private var winWidth:uint = 640;
+			private var winHeight:uint = 480;
+			private var tween:ITween;
+			private var tween2:ITween;
+			
+			public function start():void {
+				this.cacheAsBitmap = true;
+				x = winWidth + 100;
+				y = winHeight - this.height;
+				//jump();
+				run();
+				jump2();
+			}
+			
+			private function get baseY():Number {
+				return 480 - this.height - 46;
+			}
+			
+			public function get centerX():Number {
+				return this.x + this.width/2;
+			}
+			
+			public function get centerY():Number {
+				return this.y + this.height/2;
+			}
+			
+			private function run():void {
+				var self:Group = this;
+				tween = BetweenAS3.physicalTo(self, {x: -100}, Physical.uniform(3));
+				tween.addEventListener(TweenEvent.UPDATE, function():void {
+					dispatchEvent(new Event(Enemy.UPDATE));
+				});
+				tween.addEventListener(TweenEvent.COMPLETE, function():void {
+					if (self.x < -100) {
+						dispatchEvent(new Event(Enemy.OUT));
+						IVisualElementContainer(parent).removeElement(self);
+					}
+				});
+				tween.play();
+			}
+			
+			private function jump2():void {
+				var self:Group = this;
+				var h:Number = 30 + Math.random()*200;
+				var w:Number = 50 * (winHeight - h) / (30+200);
+				
+				tween2 = BetweenAS3.delay(
+					BetweenAS3.serial(
+						BetweenAS3.to(self, {y: h}, 0.5, Quad.easeOut),
+						BetweenAS3.to(self, {y: baseY}, 0.5, Quad.easeIn)
+					),
+					1 + Math.random()*1
+				);
+				tween2.addEventListener(TweenEvent.COMPLETE, function():void {
+					jump2();
+				});
+				tween2.play();
+			}
+			
+			/*
+			private function jump():void {
+				var self:Group = this;
+				var h:Number = 30 + Math.random()*200;
+				var w:Number = 50 * (winHeight - h) / (30+200);
+				
+				tween = BetweenAS3.delay( 
+					BetweenAS3.serial(
+						BetweenAS3.parallel(
+							BetweenAS3.to(self, {x: x-w}, 0.5),
+							BetweenAS3.to(self, {y: h},   0.5, Quad.easeOut)),
+						BetweenAS3.parallel(
+							BetweenAS3.to(self, {x: x-w*2}, 0.5),
+							BetweenAS3.to(self, {y: baseY}, 0.5, Quad.easeIn))),
+					1 + Math.random()*1);
+				
+				tween.addEventListener(TweenEvent.UPDATE, function():void {
+					dispatchEvent(new Event(Enemy.UPDATE));
+				});
+				
+				tween.addEventListener(TweenEvent.COMPLETE, function():void {
+					if (self.x < -100) {
+						dispatchEvent(new Event(Enemy.OUT));
+						IVisualElementContainer(parent).removeElement(self);
+					} else {
+						jump();
+					}
+				});
+				
+				tween.play()
+			}
+			*/
+			
+			public function drop():void {
+				if (tween && tween.isPlaying) {
+					tween.stop();
+				}
+				if (tween2 && tween2.isPlaying) {
+					tween2.stop();
+				}
+				this.alpha = 0.2;
+				
+				var self:Group = this;
+				var dropTween:ITween = BetweenAS3.to(this, {y: 500}, 1, Quad.easeIn);
+				dropTween.addEventListener(TweenEvent.COMPLETE, function():void {
+					dispatchEvent(new Event(Enemy.OUT));
+					IVisualElementContainer(parent).removeElement(self);
+				});
+				dropTween.play();
+			}
+		]]>
+	</fx:Script>
+	<mx:Image x="0" y="0" source="@Embed('../assets/enemy1.png')"/>
+</s:Group>

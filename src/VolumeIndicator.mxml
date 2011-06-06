@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100" height="5"
+		 creationComplete="onCreationComplete()"
+		 >
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			private function onCreationComplete():void {
+				var mic:Microphone = Microphone.getMicrophone();
+				if (!mic) return;
+				
+				mic.gain = 100;
+				mic.soundTransform = new SoundTransform(0); // ループバックするが音は出さない
+				mic.setLoopBack(true);
+				mic.codec = SoundCodec.NELLYMOSER; // ハウリング対策
+				
+				var timer:Timer = new Timer(100);
+				timer.addEventListener(TimerEvent.TIMER, function():void {
+					updateBar(mic.activityLevel);
+				});
+				timer.start();
+			}
+			
+			private function updateBar(activityLevel:Number):void {
+				this.bar.width = this.width * (activityLevel/100);
+			}
+		]]>
+	</fx:Script>
+	<s:Rect id="bar" width="0" height="{this.height}">
+		<s:fill>
+			<s:SolidColor color="0x000000" />
+		</s:fill>
+	</s:Rect>
+	<s:Rect width="{this.width}" height="{this.height}">
+		<s:stroke>
+			<s:SolidColorStroke color="0x000000" />
+		</s:stroke>
+	</s:Rect>
+</s:Group>

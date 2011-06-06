@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100" height="100"
+		 creationComplete="onCreationComplete()"
+		 addedToStage="onAddedToStage()"
+		 >
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.dncompute.graphics.ArrowStyle;
+			import com.dncompute.graphics.GraphicsUtil;
+			
+			import flash.utils.setTimeout;
+			
+			import org.libspark.betweenas3.BetweenAS3;
+			import org.libspark.betweenas3.easing.Sine;
+			import org.libspark.betweenas3.events.TweenEvent;
+			import org.libspark.betweenas3.tweens.ITween;
+			
+			private var jumping:Boolean = false;
+			private var ninjaRunTimer:Timer;
+			private var ninjaShurikenTimer1:Timer;
+			private var ninjaShurikenTimer2:Timer;
+			private var ninjaBombTimer1:Timer;
+			private var ninjaBombTimer2:Timer;
+			private var shurikenRadian:Number = 0;
+			
+			private function onCreationComplete():void {
+				ninjaRunTimer = new Timer(50);
+				ninjaRunTimer.addEventListener(TimerEvent.TIMER, onNinjaRunTimer);
+			}
+			
+			private function onAddedToStage():void {
+				stage.addEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
+			}
+			
+			private function onStageMouseMove(mouse:MouseEvent):void {
+				var localFrom:Point = new Point(70, 30);
+				var stageFrom:Point = new Point(
+					x + localFrom.x + character.x,
+					y + localFrom.y + character.y);
+				var stageMouse:Point = new Point(mouse.stageX, mouse.stageY);
+				var d:Point = stageMouse.subtract(stageFrom);
+				shurikenRadian = Math.atan2(d.y, d.x);
+				
+				//d.normalize(100); // 線の長さ
+				
+				var d1:Point = new Point(
+					40 * Math.cos(shurikenRadian),
+					40 * Math.sin(shurikenRadian));
+				var d2:Point = new Point(
+					80 * Math.cos(shurikenRadian),
+					80 * Math.sin(shurikenRadian));
+				
+				var g:Graphics = character.graphics;
+				g.clear();
+				g.lineStyle(1, 0xFFFFFF, 0.5);
+				g.beginFill(0x999999, 0.5);
+				
+				var style:ArrowStyle = new ArrowStyle();
+				style.shaftThickness = 7; // 線の太さ
+				style.headWidth = 15;
+				style.headLength = 18;
+				GraphicsUtil.drawArrow(g,
+					localFrom.add(d1),
+					localFrom.add(d2),
+					style
+					);
+			}
+			
+			public function getShurikenStagePoint():Point {
+				return new Point(
+					this.x + 80 + character.x,
+					this.y + 30 + character.y
+				);
+			}
+			
+			public function getShurikenRadian():Number {
+				return this.shurikenRadian;
+			}
+			
+			private function stopAnimation():void {
+				ninjaRunTimer.stop();
+				if (ninjaShurikenTimer1 && ninjaShurikenTimer1.running) {
+					ninjaShurikenTimer1.stop();
+				}
+				if (ninjaShurikenTimer2 && ninjaShurikenTimer2.running) {
+					ninjaShurikenTimer2.stop();
+				}
+				if (ninjaBombTimer1 && ninjaBombTimer1.running) {
+					ninjaBombTimer1.stop();
+				}
+				if (ninjaBombTimer2 && ninjaBombTimer2.running) {
+					ninjaBombTimer2.stop();
+				}
+			}
+			
+			public function stop():void {
+				stopAnimation();
+				viewstack.selectedChild = viewStop;
+			}
+			
+			public function run():void {
+				if (ninjaRunTimer.running) return;
+				viewstack.selectedChild = viewRun1;
+				ninjaRunTimer.start();
+			}
+			
+			private function onNinjaRunTimer(e:TimerEvent):void {
+				if (viewstack.selectedChild == viewRun1) {
+					viewstack.selectedChild = viewRun2;
+				} else if (viewstack.selectedChild == viewRun2) {
+					viewstack.selectedChild = viewRun3;
+				} else if (viewstack.selectedChild == viewRun3) {
+					viewstack.selectedChild = viewRun4;
+				} else if (viewstack.selectedChild == viewRun4) {
+					viewstack.selectedChild = viewRun1;
+				}
+			}
+			
+			public function jump():void {
+				if (jumping) return;
+				jumping = true;
+				stopAnimation();
+				viewstack.selectedChild = viewJump;
+				
+				var tween:ITween = BetweenAS3.serial(
+					BetweenAS3.to(character, {y: -300}, 0.7, Sine.easeOut),
+					BetweenAS3.to(character, {y: 0},    0.7, Sine.easeIn));
+				tween.addEventListener(TweenEvent.COMPLETE, function():void {
+					jumping = false;
+					run();
+				});
+				tween.play();
+			}
+			
+			public function show():void {
+				stopAnimation();
+				viewstack.alpha = 1;
+				viewstack.selectedChild = viewStop;
+				
+				this.run();
+			}
+			
+			public function isHidden():Boolean {
+				return (viewstack.selectedChild == viewHide);
+			}
+			
+			public function hide():void {
+				stopAnimation();
+				viewstack.alpha = 0.1;
+				viewstack.selectedChild = viewHide;
+				
+			}
+			
+			public function shuriken():void {
+				stopAnimation();
+				viewstack.selectedChild = viewShuriken1;
+				ninjaShurikenTimer1 = new Timer(200, 1);
+				ninjaShurikenTimer1.addEventListener(TimerEvent.TIMER, function():void {
+					viewstack.selectedChild = viewShuriken2;
+					ninjaShurikenTimer2 = new Timer(500, 1);
+					ninjaShurikenTimer2.addEventListener(TimerEvent.TIMER, function():void {
+						run();
+					});
+					ninjaShurikenTimer2.start();
+				});
+				ninjaShurikenTimer1.start();
+			}
+			
+			public function bomb():void {
+				stopAnimation();
+				viewstack.selectedChild = viewBomb1;
+				ninjaBombTimer1 = new Timer(400, 1);
+				ninjaBombTimer1.addEventListener(TimerEvent.TIMER, function():void {
+					viewstack.selectedChild = viewBomb2;
+					ninjaBombTimer2 = new Timer(1000, 1);
+					ninjaBombTimer2.addEventListener(TimerEvent.TIMER, function():void {
+						run();
+					});
+					ninjaBombTimer2.start();
+				});
+				ninjaBombTimer1.start();
+			}
+			
+			public function thunder():void {
+				stopAnimation();
+				viewstack.selectedChild = viewStop;
+			}
+			
+			private var damageTween:ITween;
+			
+			public function damage():void {
+				if (damageTween && damageTween.isPlaying) return;
+				
+				damageTween = BetweenAS3.serial(
+					BetweenAS3.to(character, {alpha: 0.2}, 0.2),
+					BetweenAS3.to(character, {alpha: 1},   0.2),
+					BetweenAS3.to(character, {alpha: 0.2}, 0.2),
+					BetweenAS3.to(character, {alpha: 1},   0.2)
+				);
+				damageTween.play();
+			}
+			
+			public function get centerX():Number {
+				return this.x + this.width/2;
+			}
+			
+			public function get centerY():Number {
+				return this.y + this.height/2;
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Group id="character">
+		<mx:ViewStack id="viewstack" width="180" height="200">
+			<s:NavigatorContent id="viewStop" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-stop.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewRun1" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-run1.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewRun2" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-run2.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewRun3" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-run3.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewRun4" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-run2.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewJump" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-jump.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewHide" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-hide.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewShuriken1" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-shuriken1.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewShuriken2" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-shuriken2.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewBomb1" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-bomb1.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent id="viewBomb2" width="100%" height="100%">
+				<mx:Image source="@Embed('../assets/ninja-bomb2.png')" cacheAsBitmap="true"/>
+			</s:NavigatorContent>
+		</mx:ViewStack>
+	</s:Group>
+</s:Group>

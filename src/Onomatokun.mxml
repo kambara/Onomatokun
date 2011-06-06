@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   width="640"
+					   height="480"
+					   backgroundColor="#A3A8DB"
+					   frameRate="20"
+					   applicationComplete="onApplicationComplete()"
+					   closing="onClosing(event)"
+					   xmlns:ns1="*">
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.core.UIComponent;
+			
+			import net.hires.debug.Stats;
+			
+			private const debug:Boolean = false;
+			private var enemies:Object = {};
+			private var bombs:Object = {};
+			private var julian:JulianSocket;
+			
+			private function onApplicationComplete():void {
+				julian = new JulianSocket();
+				julian.addEventListener(Event.CONNECT, onJulianEvent);
+				julian.addEventListener(Event.CLOSE, onJulianEvent);
+				julian.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onJulianEvent);
+				julian.addEventListener(IOErrorEvent.IO_ERROR, onJulianEvent);
+				julian.addEventListener("connecting", onJulianEvent);
+				julian.addEventListener("stop_challenge", onJulianEvent);
+				julian.addEventListener(JulianSocketEvent.WORD, onWord);
+				julian.addEventListener(JulianSocketEvent.WORD_WITH_CONFIDENCE, onWordWithConfidence);
+				
+				stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+				addEnemies();
+				
+				if (debug) {
+					var statsWrapper:UIComponent = new UIComponent();
+					statsWrapper.addChild(new Stats());
+					addElement(statsWrapper);
+				}
+				
+				ninja.run();
+				roof.play();
+			}
+			
+			private function onClosing(event:Event):void {
+				if (julian.connected) {
+					event.preventDefault();
+					julian.close();
+					setTimeout(exit, 1000);
+				}
+			}
+			
+			private var prevWord:String = null;
+			private var continuousCount:uint = 0;
+			
+			private function onWord(event:JulianSocketEvent):void {
+				//dispatchEvent(new Event("word"));
+				var word:String = event.word;
+				
+				// 無音部分は無視
+				if (word == "silB"
+					|| word == "silE"
+					|| word == "noise") {
+					return;
+				}
+				
+				// 単語の連続を数える
+				if (prevWord == word) {
+					continuousCount += 1;
+				} else {
+					prevWord = word;
+					continuousCount = 1;
+				}
+				
+				traceAndStatus(word + " x" + continuousCount);
+				
+				switch (word) {
+					case "shu":
+						if (continuousCount >= 2) {
+							ninja.shuriken();
+							throwShuriken();
+							continuousCount = 0;
+						}
+						break;
+					case "ta":
+						if (continuousCount >= 2) {
+							ninja.run();
+							continuousCount = 0;
+						}
+						break;
+					case "pyon":
+						if (continuousCount >= 2) {
+							ninja.jump();
+							continuousCount = 0;
+						}
+				}
+				
+			}
+			
+			private function traceAndStatus(str:String):void {
+				status = str;
+				trace(str);
+			}
+			
+			private function onWordWithConfidence(event:JulianSocketEvent):void {
+				var word:String = event.word;
+				var confidence:Number = event.confidence;
+				
+				if (word == "silB"
+					|| word == "silE"
+					|| word == "noise") {
+					return;
+				}
+				
+				if (confidence >= 0.5) {
+					switch (word) {
+						case "hyun":
+							ninja.bomb();
+							throwBomb();
+							break;
+						case "dokan":
+							explode();
+							break;
+						case "doron":
+							ninja.hide();
+							roof.pause();
+							break;
+						case "pa":
+							ninja.show();
+							roof.replay();
+							break;
+						case "pika":
+							ninja.thunder();
+							break;
+					}
+				}
+				var percentage:Number = Math.round(confidence * 100);
+				traceAndStatus(word + " (" + percentage.toString() + "%)");
+			}
+			
+			private function onJulianEvent(event:Event):void {
+				this.status = event.type;
+			}
+			
+			private var enemyCount:uint = 0;
+			
+			private function addEnemies():void {
+				var enemy:Enemy = new Enemy();
+				enemy.start();
+				var enemyId:String = "e" + enemyCount;
+				enemy.addEventListener(Enemy.UPDATE, function():void {
+					if (ninja.isHidden()) return;
+					var dx:Number = Math.abs(enemy.centerX - ninja.centerX);
+					var dy:Number = Math.abs(enemy.centerY - ninja.centerY);
+					if (dx < 50 && dy < 100) {
+						//trace("damage");
+						ninja.damage();
+						//showGameOver();
+					}
+				});
+				enemy.addEventListener(Enemy.OUT, function():void {
+					delete enemies[enemyId];
+				});
+				this.addElement(enemy);
+				enemies[enemyId] = enemy;
+				enemyCount += 1;
+				setTimeout(addEnemies, 5000 + Math.random()*3000);
+			}
+			
+			private function showGameOver():void {
+				trace("game over");
+				
+			}
+			
+			private function onKeyDown(event:KeyboardEvent):void {
+				switch (event.keyCode) {
+					case Keyboard.SPACE:
+						ninja.shuriken();
+						throwShuriken();
+						break;
+					case Keyboard.ENTER:
+						ninja.thunder();
+						break;
+					case Keyboard.H:
+						ninja.hide();
+						roof.pause();
+						break;
+					case Keyboard.S:
+						ninja.show();
+						roof.replay();
+						break;
+					
+					case Keyboard.B:
+						ninja.bomb();
+						throwBomb();
+						break;
+					case Keyboard.E:
+						explode();
+						break;
+					
+					case Keyboard.LEFT:
+						ninja.stop();
+						break;
+					case Keyboard.UP:
+						ninja.jump();
+						break;
+					case Keyboard.RIGHT:
+						ninja.run();
+				}
+			}
+			
+			private function throwShuriken():void {
+				var shuriken:Shuriken = new Shuriken();
+				shuriken.addEventListener(Shuriken.UPDATE, function():void {
+					// 敵と当たり判定
+					if (!shuriken.visible) return;
+					for (var enemyId:String in enemies) {
+						var enemy:Enemy = enemies[enemyId] as Enemy;
+						var dx:Number = Math.abs(enemy.centerX - shuriken.centerX);
+						var dy:Number = Math.abs(enemy.centerY - shuriken.centerY);
+						if (dx < 30 && dy < 50) {
+							// ヒット
+							shuriken.removeEventListener(Shuriken.UPDATE, arguments.callee);
+							shuriken.visible = false;
+							delete enemies[enemyId];
+							enemy.drop();
+							trace("Hit " + enemyId);
+						}
+					}
+				});
+				
+				setTimeout(function():void {
+					shuriken.start(
+						ninja.getShurikenStagePoint(),
+						ninja.getShurikenRadian());
+					addElement(shuriken);
+				}, 250);
+			}
+			
+			private var bombCount:uint = 0;
+			
+			private function throwBomb():void {
+				var bombId:String = "b" + bombCount;
+				bombCount += 1;
+				var bomb:Bomb = new Bomb();
+				bomb.addEventListener(Bomb.OUT, function():void {
+					delete bombs[bombId]; // 一覧から削除
+				});
+				bomb.x = ninja.getShurikenStagePoint().x - bomb.width/2;
+				bomb.y = ninja.getShurikenStagePoint().y - bomb.height/2;
+				addElement(bomb);
+				bombs[bombId] = bomb;
+				
+				setTimeout(function():void {
+					bomb.start(ninja.getShurikenRadian());
+				}, 450);
+			}
+			
+			private function explode():void {
+				for (var bombId:String in bombs) {
+					var bomb:Bomb = bombs[bombId] as Bomb;
+					if (!bomb || !bomb.visible) continue;
+					
+					bomb.visible = false;
+					var explosion:Explosion = new Explosion();
+					explosion.x = bomb.x + bomb.width/2 - explosion.width/2;
+					explosion.y = bomb.y + bomb.height/2 - explosion.height/2;
+					addElement(explosion);
+					
+					// 当たり判定
+					for (var enemyId:String in enemies) {
+						var enemy:Enemy = enemies[enemyId] as Enemy;
+						var dx:Number = Math.abs(enemy.centerX - bomb.centerX);
+						var dy:Number = Math.abs(enemy.centerY - bomb.centerY);
+						if (dx < 230 && dy < 230) {
+							// ヒット
+							delete enemies[enemyId];
+							with (enemy) {
+								setTimeout(function():void {
+									drop();
+								}, 500);
+							}
+							trace("Hit " + enemyId);
+						}
+					}
+				}
+				bombs = {};
+			}
+		]]>
+	</fx:Script>
+	<ns1:Roof id="roof" x="0" y="400" />
+	<ns1:Ninja id="ninja" left="50" bottom="20"/>
+	<ns1:VolumeIndicator left="1" bottom="1" />
+</s:WindowedApplication>

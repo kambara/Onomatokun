@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="500" height="500"
+		 creationComplete="onCreationComplete()"
+		 >
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.core.IVisualElementContainer;
+			
+			import org.libspark.betweenas3.BetweenAS3;
+			import org.libspark.betweenas3.easing.Quad;
+			import org.libspark.betweenas3.events.TweenEvent;
+			import org.libspark.betweenas3.tweens.ITween;
+			
+			public static const FINISH:String = "finish";
+			
+			public function onCreationComplete():void {
+				image.width = 50;
+				image.height = 50;
+				
+				var self:Group = this;
+				var tween:ITween = BetweenAS3.to(image, {width: 500, height: 500}, 0.5, Quad.easeOut);
+				tween.addEventListener(TweenEvent.COMPLETE, function():void {
+					self.visible = false;
+					IVisualElementContainer(parent).removeElement(self);
+				});
+				tween.play();
+				image.visible = true;
+			}
+			
+			public function get centerX():Number {
+				return this.x + this.width/2;
+			}
+			
+			public function get centerY():Number {
+				return this.y + this.height/2;
+			}
+		]]>
+	</fx:Script>
+	<mx:Image visible="false" id="image" source="@Embed('../assets/explosion.png')" horizontalCenter="0" verticalCenter="0" width="500" height="500" />	
+</s:Group>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="30" height="30"
+		 >
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 非ビジュアルエレメント (サービス、値オブジェクトなど) をここに配置 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.core.IVisualElementContainer;
+			
+			import org.libspark.betweenas3.BetweenAS3;
+			import org.libspark.betweenas3.events.TweenEvent;
+			import org.libspark.betweenas3.tweens.ITween;
+			public static const OUT:String = "out";
+			public static const UPDATE:String = "update";
+			
+			private var moveTween:ITween;
+			private var rotTween:ITween;
+			
+			public function start(point:Point, radian:Number):void {
+				var self:Group = this;
+				this.x = point.x - this.width/2;
+				this.y = point.y - this.height/2;
+				
+				var d:Number = 1000; // 必ず画面外に出る距離
+				var dx:Number = d * Math.cos(radian);
+				var dy:Number = d * Math.sin(radian);
+				var destX:Number = this.x + dx;
+				var destY:Number = this.y + dy;
+				moveTween = BetweenAS3.to(this, {x: destX, y: destY}, 2.5);
+				moveTween.addEventListener(TweenEvent.COMPLETE, function():void {
+					dispatchEvent(new Event(Shuriken.OUT));
+					IVisualElementContainer(parent).removeElement(self);
+				});
+				moveTween.addEventListener(TweenEvent.UPDATE, function():void {
+					dispatchEvent(new Event(Shuriken.UPDATE));
+				});
+				moveTween.play();
+				
+				rotTween = BetweenAS3.tween(container, {rotation: 360}, {rotation: 0}, 2);
+				rotTween.stopOnComplete = false;
+				rotTween.play();
+			}
+			
+			public function stop():void {
+				if (moveTween) {
+					moveTween.stop();
+				}
+				if (rotTween) {
+					rotTween.stop();
+				}
+			}
+			
+			public function get centerX():Number {
+				return this.x + this.width/2;
+			}
+			
+			public function get centerY():Number {
+				return this.y + this.height/2;
+			}
+		]]>
+	</fx:Script>
+	<s:Group id="container" x="15" y="15">
+		<mx:Image x="-15" y="-15" source="@Embed('../assets/shuriken2.swf')"/>	
+	</s:Group>
+</s:Group>
